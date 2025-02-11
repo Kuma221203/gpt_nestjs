@@ -18,6 +18,7 @@ export class UsersController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(@CurrentUser() user: TokenPayload) {
+    console.log(">>> Check User:", user);
     return user;
   }
 }
