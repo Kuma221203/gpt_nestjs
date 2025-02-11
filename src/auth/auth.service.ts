@@ -1,5 +1,4 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import ms from 'ms';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import { UsersService } from '../users/users.service';
@@ -7,7 +6,9 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Users } from '@prisma/client';
 import { TokenPayload } from './interface/token-payload.interface';
-import { log } from 'console';
+
+const ms = require('ms');
+
 
 @Injectable()
 export class AuthService {
@@ -20,10 +21,9 @@ export class AuthService {
   async login(user: Users, response: Response) {
     const expires = new Date();
     const jwtExpiresIn = this.configService.getOrThrow<string>('JWT_EXPIRES_IN');
-    console.log(">>>check jwtExpiresIn: ", jwtExpiresIn);
     expires.setMilliseconds(
       expires.getMilliseconds() +
-        360000,
+        ms(this.configService.getOrThrow<string>('JWT_EXPIRES_IN')),
     );
 
     const tokenPayload: TokenPayload = {
