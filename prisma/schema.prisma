@@ -8,16 +8,59 @@ datasource db {
 }
 
 model Users {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  username  String?
-  password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String?
+  password      String
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  states        States[]
+}
+
+model Models {
+  id            String @id @default(uuid())
+  name          String @unique
+  description   String
+  exchanges     SingleExchanges[]    
+}
+
+model States {
+  id            String @id @default(uuid())
+  titile        String 
+  user          Users @relation(fields: [userId], references: [id])
+  userId        String
+  exchanges     SingleExchanges[]
+  createdAt     DateTime @default(now())
+}
+
+model SingleExchanges {
+  id            String @id @default(uuid())
+  model         Models @relation(fields: [modelId], references: [id])
+  modelId       String
+  state         States @relation(fields: [stateId], references: [id])
+  stateId       String
+  messages      Messages[]
+  createdAt     DateTime @default(now())
+}
+
+model Messages {
+  id            String @id @default(uuid())
+  chatRole      ChatRole @default(USER)
+  img_path      String?
+  content       String
+  exchange      SingleExchanges @relation(fields: [exchangeId], references: [id])
+  exchangeId    String
+  createdAt     DateTime @default(now())
 }
 
 enum Role {
   USER
   ADMIN
+}
+
+enum ChatRole {
+  USER
+  MODEL
+  SYSTEM
 }

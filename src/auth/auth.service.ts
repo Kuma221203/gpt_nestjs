@@ -20,7 +20,6 @@ export class AuthService {
 
   async login(user: Users, response: Response) {
     const expires = new Date();
-    const jwtExpiresIn = this.configService.getOrThrow<string>('JWT_EXPIRES_IN');
     expires.setMilliseconds(
       expires.getMilliseconds() +
         ms(this.configService.getOrThrow<string>('JWT_EXPIRES_IN')),
