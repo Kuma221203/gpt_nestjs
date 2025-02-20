@@ -9,7 +9,6 @@ import { TokenPayload } from './interface/token-payload.interface';
 
 const ms = require('ms');
 
-
 @Injectable()
 export class AuthService {
   constructor(

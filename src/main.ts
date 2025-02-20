@@ -14,6 +14,5 @@ async function bootstrap() {
   });
   app.use(cookieParser());
   await app.listen(app.get(ConfigService).getOrThrow('PORT') ?? 8080);
-
 }
 bootstrap();
