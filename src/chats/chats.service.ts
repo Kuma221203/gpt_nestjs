@@ -19,38 +19,74 @@ export class ChatsService {
     });
   }
 
+  async getRecentMessages(createChatDto: _CreateChatDto) {
+    const exchanges = await this.prismaService.singleExchanges.findMany({
+      where: {
+        stateId: createChatDto.stateId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const exchangeIds = exchanges.map((e) => e.id);
+
+    const messages = await this.prismaService.messages.findMany({
+      where: {
+        exchangeId: {
+          in: exchangeIds,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 10,
+    });
+
+    let reversedMessages = messages.reverse();
+    reversedMessages.push({id: "", chatRole: 'USER', img_path: null, exchangeId:"", content: createChatDto.question, createdAt: new Date()});
+    return reversedMessages ;
+  } 
+
   generateStreaming(createChatDto: _CreateChatDto): Observable<string> {
     return new Observable((subscriber) => {
-      this.openai.chat.completions.create({
-        model: createChatDto.model,
-        messages: [{ role: 'user', content: createChatDto.question }],
-        stream: true,
-      })
-        .then(async (stream) => {
+      (async () => {
+        try {
+          const recentMessages = await this.getRecentMessages(createChatDto);
+          const stream = await this.openai.chat.completions.create({
+            model: createChatDto.model,
+            messages: recentMessages.map((m) => {
+              return {
+                role: m.chatRole === 'USER' ? 'user' : 'assistant',
+                content: m.content,
+              };
+            }),
+            stream: true,
+          })
           let fullResponse = '';
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
             subscriber.next(content);
             fullResponse += content;
           }
-          // --------------------------
           let exchangeId: string;
-
-          if (createChatDto.isInit === "true") {
-            exchangeId = (await this.prismaService.singleExchanges.findMany({
-              select: { id: true },
-              where: { stateId: createChatDto.stateId },
-              orderBy: { createdAt: "desc" },
-              take: 1,
-            }))[0].id
+          if (createChatDto.isInit === 'true') {
+            exchangeId = (
+              await this.prismaService.singleExchanges.findMany({
+                select: { id: true },
+                where: { stateId: createChatDto.stateId },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              })
+            )[0].id;
           } else {
             const model = await this.prismaService.models.findUniqueOrThrow({
               where: { name: createChatDto.model },
               select: { id: true },
             });
-            exchangeId = (await this.newMessages(model.id, createChatDto.stateId, createChatDto.question)).id
+            exchangeId = (await this.newMessages(model.id, createChatDto.stateId, createChatDto.question)).id;
           }
-          // --------------------------
+
           await this.prismaService.messages.create({
             data: {
               chatRole: 'MODEL',
@@ -58,13 +94,31 @@ export class ChatsService {
               exchangeId: exchangeId,
             },
           });
+
           subscriber.complete();
-          console.log("Complete streaming");
-        })
-        .catch((error) => {
+        } catch (error) {
           subscriber.error(error);
-        });
+        }
+      })();
     });
+  }
+
+  async newMessages(modelId: string, stateId: string, content: string) {
+    const newSingleExchange = await this.prismaService.singleExchanges.create({
+      data: {
+        modelId: modelId,
+        stateId: stateId,
+      },
+      select: { id: true },
+    });
+
+    await this.prismaService.messages.create({
+      data: {
+        content: content,
+        exchangeId: newSingleExchange.id,
+      },
+    });
+    return newSingleExchange;
   }
 
 
@@ -98,24 +152,6 @@ Output: ASR Models for CPU`
 
     await this.newMessages(model.id, newState.id, createStateDto.question);
     return newState.id;
-  }
-
-  async newMessages(modelId: string, stateId: string, content: string) {
-    const newSingleExchange = await this.prismaService.singleExchanges.create({
-      data: {
-        modelId: modelId,
-        stateId: stateId,
-      },
-      select: { id: true },
-    });
-
-    await this.prismaService.messages.create({
-      data: {
-        content: content,
-        exchangeId: newSingleExchange.id,
-      },
-    });
-    return newSingleExchange;
   }
 
   async getChats(stateId: string) {
